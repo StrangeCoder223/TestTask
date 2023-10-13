@@ -5,65 +5,44 @@ using UnityEngine;
 public class SlowdownArea : MonoBehaviour
 {
     [SerializeField] private float _slowdownMultiplier;
-    private readonly Dictionary<Rigidbody2D, RbInitialData> _rigidbodiesWithData = new();
+    private readonly List<Shell> _shells = new();
     
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.TryGetComponent(out Rigidbody2D rb))
+        if (other.TryGetComponent(out Shell shell))
         {
-            RbInitialData initialData = new RbInitialData(rb);
-            _rigidbodiesWithData.Add(rb, initialData);
+            _shells.Add(shell);
 
             float slowTimeScale = 1f / _slowdownMultiplier;
-            rb.gravityScale = 0;
-            rb.mass /= slowTimeScale;
-            rb.velocity *= slowTimeScale;
-            rb.angularVelocity *= slowTimeScale;
+            shell.Rigidbody.gravityScale = 0;
+            shell.Rigidbody.mass *= slowTimeScale;
+            shell.Rigidbody.velocity *= slowTimeScale;
+            shell.Rigidbody.angularVelocity *= slowTimeScale;
         }
     }
 
     private void OnTriggerExit2D(Collider2D other)
     {
-        if (other.TryGetComponent(out Rigidbody2D rb))
+        if (other.TryGetComponent(out Shell shell))
         {
-            Restore(rb);
-            _rigidbodiesWithData.Remove(rb);
+            float slowTimeScale = 1f / _slowdownMultiplier;
+            shell.ResetPhysics(slowTimeScale);
+            _shells.Remove(shell);
         }
     }
 
-    private void Slowdown(Rigidbody2D rb)
+    private void Slowdown(Shell shell)
     {
         float slowTimeScale = Time.timeScale / _slowdownMultiplier;
         float deltaTime = Time.fixedDeltaTime * slowTimeScale;
-        rb.velocity += Physics2D.gravity / rb.mass * deltaTime;
-    }
-
-    private void Restore(Rigidbody2D rb)
-    {
-        float slowTimeScale = 1f / _slowdownMultiplier;
-        rb.mass = _rigidbodiesWithData[rb].Mass;
-        rb.gravityScale = _rigidbodiesWithData[rb].Gravity;
-        rb.velocity /= slowTimeScale;
-        rb.angularVelocity /= slowTimeScale;
+        shell.Rigidbody.velocity += Physics2D.gravity * (shell.Rigidbody.mass * deltaTime);
     }
 
     private void FixedUpdate()
     {
-        foreach (var rb in _rigidbodiesWithData)
+        foreach (var shell in _shells)
         {
-            Slowdown(rb.Key);
+            Slowdown(shell);
         }
-    }
-}
-
-public class RbInitialData
-{
-    public float Mass { get; private set; }
-    public float Gravity { get; private set; }
-    
-    public RbInitialData(Rigidbody2D rigidbody)
-    {
-        Mass = rigidbody.mass;
-        Gravity = rigidbody.gravityScale;
     }
 }
